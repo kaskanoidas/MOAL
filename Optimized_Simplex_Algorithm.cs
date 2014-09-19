@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 // Mixed Optimisation Algorithm TM Gludis 2014, Created by: Rolandas Rimkus
 namespace Mixed_Optimisation_Algorithm_Library
 {
+    // NOTE: try using tail_Recursion where it is implemented correctly. Otherwise to avoid stack-overflow use loop like below.
     class Optimized_Simplex_Algorithm
     {
         // Global variables
@@ -17,7 +18,7 @@ namespace Mixed_Optimisation_Algorithm_Library
         string Answer;
         Boolean Continue_Calculation;
         Boolean Start_Sum_Process;
-
+        Data_Possibilitys Data;
         // Equation system we used (hardcoded):
         // 3x1 + 5x2 + 8x3 + 10x4 + 18x5 = 3600
         // 7x1 + x2  + 9x3 + 11x4 + 10x5 = 5010
@@ -31,63 +32,182 @@ namespace Mixed_Optimisation_Algorithm_Library
         {
             return Answer;
         }
-        private void Reset_Best_Answer_Data()
+        private List<Tuple<int, int>> Reset_Best_Answer_Data()
         {
-            Best_Answer_Data = new List<Tuple<int, int>>() // 0 index == Sum value and residual, other's unknown and value
+            List<Tuple<int, int>> newAnswer = new List<Tuple<int, int>>() // 0 index == Sum value and residual, other's unknown and value
             {
                 new Tuple<int,int>(0,3600 + 5010 + 3000),
                 new Tuple<int,int>(1,0), new Tuple<int,int>(2,0), new Tuple<int,int>(3,0), 
                 new Tuple<int,int>(4,0), new Tuple<int,int>(5,0)
             };
+            return newAnswer;
         }
         private void Simplex_Deep_Cycle()
         {
-            Reset_Best_Answer_Data();
+            Best_Answer_Data = Reset_Best_Answer_Data();
             Residual_Back = new List<int>() { 3600, 5010, 3000 }; // hardcoded results
             Start_Sum_Process = false;
             Continue_Calculation = true;
             while (Continue_Calculation == true)
             {
+                Data = new Data_Possibilitys();
                 Make_Simplex_Tabel();
-                int Number_Of_Cycles = Table.Rows[Table.Rows.Count - 1].Row_Values.Count; // Math.Min(500, ...); for recursion
                 Continue_Calculation = false;
-                Simplex_Cycle(Table, Number_Of_Cycles);
+                Simplex_Cycle(Table);
                 Start_Sum_Process = true;
             }
         }
-        private void Simplex_Cycle(Simplex_Table Lentele, int count)
+        private void Simplex_Cycle(Simplex_Table _Table)
         {
-            for (int i = 0; i < count; i++) // FIX
+            Table_Possibility start = new Table_Possibility();
+            start.Table = Make_Simplex_Tabel_Copy(_Table);
+            start.Residual.AddRange(Residual_Back);
+            Data.Tables.Add(start);
+            Data.Values.Add(new Value_Possibility());
+            while (Data.Tables.Count != 0)
             {
-                Simplex_Cycle_Step(Lentele, i);
+                int count = Data.Tables.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    Find_Max_Index(Data.Tables[i].Table, Data.Tables[i].Residual);
+                    Data.Tables.RemoveAt(i);
+                    Data.Values.RemoveAt(i);
+                    i--; count--;
+                }
+                count = Data.Tables.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    Find_Min_Selected_Indicators_Result(Data.Tables[i].Table, Data.Tables[i].Residual, Data.Values[i].Max_Index);
+                    Data.Tables.RemoveAt(i);
+                    Data.Values.RemoveAt(i);
+                    i--; count--;
+                }
+                count = Data.Tables.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    if (Simplex_Cycle_Step(ref Data.Tables[i].Table, ref Data.Tables[i].Residual, i) == false)
+                    {
+                        Data.Tables.RemoveAt(i);
+                        Data.Values.RemoveAt(i);
+                        i--; count--;
+                    }
+                }
             }
         }
-        private void Simplex_Cycle_Step(Simplex_Table Table, int count)
+        private void Find_Max_Index(Simplex_Table _Table, List<int> _Residual)
         {
-            Simplex_Table Table_Back = new Simplex_Table();
-            Table_Back = Make_Simplex_Tabel_Copy(Table);
-            Boolean stop = false;
-            while (Check_Symplex_Rules(Table_Back) == true)
+            int Row_Count = _Table.Rows.Count - 1;
+            List<double> Row = _Table.Rows[Row_Count].Row_Values;
+            int count = Row.Count;
+            double max = -1;
+            int mx = -1;
+            for (int i = 0; i < count; i++)
             {
-                List<int> Residual = new List<int> { };
-                int Max_Index = Find_Max_Index(Table_Back, count);
-                Tuple<int, double> back = Find_Min_Selected_Indicators_Result(Max_Index, Table_Back);
-                int Min_Selected_Indicator = back.Item1;
-                int Min_Selected_Indicators_Result = Convert.ToInt32(Math.Floor(back.Item2));
+                if (max < Row[i])
+                {
+                    max = Row[i];
+                    mx = i;
+                }
+            }
+            if (mx != -1)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if (max == Row[i])
+                    {
+                        Value_Possibility VP = new Value_Possibility();
+                        VP.Max_Index = i;
+                        VP.Min_Selected_Indicators_Result = -1;
+                        VP.Min_Selected_Indicator = -1;
+                        Data.Values.Add(VP);
+                        Table_Possibility TP = new Table_Possibility();
+                        TP.Table = Make_Simplex_Tabel_Copy(_Table);
+                        TP.Residual.AddRange(_Residual);
+                        Data.Tables.Add(TP);
+                    }
+                }
+            }
+        }
+        private void Find_Min_Selected_Indicators_Result(Simplex_Table _Table, List<int> _Residual, int Max_Index)
+        {
+            double min = -1;
+            int mn = -1;
+            List<Row> Row_List = _Table.Rows;
+            int count = Row_List.Count - 1;
+            for (int i = 0; i < count; i++)
+            {
+                double value = _Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
+                if (value > 0)
+                {
+                    min = value;
+                    mn = i;
+                    i = count;
+                }
+            }
+            if (min != -1)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if (Row_List[i].Row_Values[Max_Index] > 0)
+                    {
+                        double tikrinti = _Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
+                        if (tikrinti < min && tikrinti > 0)
+                        {
+                            min = tikrinti;
+                            mn = i;
+                        }
+                    }
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    if (Row_List[i].Row_Values[Max_Index] > 0)
+                    {
+                        double tikrinti = _Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
+                        if (tikrinti == min)
+                        {
+                            Value_Possibility newValue = new Value_Possibility();
+                            newValue.Max_Index = Max_Index;
+                            newValue.Min_Selected_Indicator = i;
+                            newValue.Min_Selected_Indicators_Result = min;
+                            Data.Values.Add(newValue);
+                            Table_Possibility TP = new Table_Possibility();
+                            TP.Table = Make_Simplex_Tabel_Copy(_Table);
+                            TP.Residual.AddRange(_Residual);
+                            Data.Tables.Add(TP);
+                        }
+                    }
+                }
+            }
+        }
+        private Boolean Simplex_Cycle_Step(ref Simplex_Table _Table, ref List<int> Residual, int Index)
+        {
+            Boolean stop = false;
+            if (Check_Symplex_Rules(_Table) == true)
+            {
+                Residual = new List<int> { };
+                int Max_Index = Data.Values[Index].Max_Index;
+                int Min_Selected_Indicator = Data.Values[Index].Min_Selected_Indicator;
+                int Min_Selected_Indicators_Result = Convert.ToInt32(Math.Floor(Data.Values[Index].Min_Selected_Indicators_Result));
                 if (Min_Selected_Indicator == -1 && Min_Selected_Indicators_Result == -1)
                 {
-                    break;
+                    return false;
                 }
                 else
                 {
-                    Table_Back.Selected_Indicator[Min_Selected_Indicator] = Max_Index;
-                    Transform_Main_Row(Min_Selected_Indicator, Max_Index, ref Table_Back);
-                    Transform_Other_Rows(Min_Selected_Indicator, Max_Index, ref Table_Back);
-                    Transform_Main_Collumn(Min_Selected_Indicator, Max_Index, ref Table_Back);
-                    Recount_Selected_Indicators_Result(Min_Selected_Indicator, Max_Index, Min_Selected_Indicators_Result, ref Table_Back, ref Residual);
-                    stop = Test_Simplex_Answer(Table_Back, Residual);
+                    _Table.Selected_Indicator[Min_Selected_Indicator] = Max_Index;
+                    Transform_Main_Row(Min_Selected_Indicator, Max_Index, ref _Table);
+                    Transform_Other_Rows(Min_Selected_Indicator, Max_Index, ref _Table);
+                    Transform_Main_Collumn(Min_Selected_Indicator, Max_Index, ref _Table);
+                    Recount_Selected_Indicators_Result(Min_Selected_Indicator, Max_Index, Min_Selected_Indicators_Result, ref _Table, ref Residual);
+                    stop = Test_Simplex_Answer(_Table, Residual);
+                    if (stop == false)
+                    {
+                        return false;
+                    }
+                    return true;
                 }
             }
+            return false;
         }
         private void Make_Simplex_Tabel()
         {
@@ -157,97 +277,7 @@ namespace Mixed_Optimisation_Algorithm_Library
                 }
             }
             return false;
-        }
-        private int Find_Max_Index(Simplex_Table Table, int Cycle_Number)
-        {
-            // FIX : Cycle_Number remove???
-            int Row_Count = Table.Rows.Count - 1;
-            List<double> Row = Table.Rows[Row_Count].Row_Values;
-            int count = Row.Count;
-            double max = 0;
-            int mx = 0;
-            for (int i = 0; i < count; i++)
-            {
-                if (max < Row[i])
-                {
-                    max = Row[i];
-                    mx = i;
-                }
-            }
-            List<int> List_Index_Equal_Index = new List<int>() { };
-            for (int i = 0; i < count; i++)
-            {
-                if (max == Row[i])
-                {
-                    List_Index_Equal_Index.Add(i);
-                }
-            }
-            if (List_Index_Equal_Index.Count > 1)
-            {
-                // FIX : add recursion here for each of the List_Index_Equal_Index 
-                return mx;
-            }
-            else
-            {
-                return mx;
-            }
-        }
-        private Tuple<int, double> Find_Min_Selected_Indicators_Result(int Max_Index, Simplex_Table Table)
-        {
-            double min = -1;
-            int mn = 0;
-            List<Row> Row_List = Table.Rows;
-            int count = Row_List.Count - 1;
-            for (int i = 0; i < count; i++)
-            {
-                double value = Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
-                if (value > 0)
-                {
-                    min = value;
-                    i = count;
-                }
-            }
-            if (min != -1)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    if (Row_List[i].Row_Values[Max_Index] > 0)
-                    {
-                        double tikrinti = Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
-                        if (tikrinti < min && tikrinti > 0)
-                        {
-                            min = tikrinti;
-                            mn = i;
-                        }
-                    }
-                }
-                List<int> List_Selected_Indicators_Result = new List<int>() { };
-                for (int i = 0; i < count; i++)
-                {
-                    if (Row_List[i].Row_Values[Max_Index] > 0)
-                    {
-                        double tikrinti = Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
-                        if (tikrinti == min)
-                        {
-                            List_Selected_Indicators_Result.Add(i);
-                        }
-                    }
-                }
-                if (List_Selected_Indicators_Result.Count > 1)
-                {
-                    // FIX: Add Recursion here.
-                    return Tuple.Create(mn, min);
-                }
-                else
-                {
-                    return Tuple.Create(mn, min);
-                }
-            }
-            else
-            {
-                return Tuple.Create(-1, -1.0);
-            }
-        }
+        }      
         private void Transform_Main_Row(int Min_Selected_Indicators_Result, int Max_Index, ref Simplex_Table Table)
         {
             List<double> Row = Table.Rows[Min_Selected_Indicators_Result].Row_Values;
@@ -359,7 +389,7 @@ namespace Mixed_Optimisation_Algorithm_Library
             }
             if (Sum_Answers > Best_Answer_Data[0].Item1)
             {
-                Reset_Best_Answer_Data();
+                Best_Answer_Data = Reset_Best_Answer_Data();
                 int resid = 0;
                 for(int i = 0; i < Residual.Count; i++)
                 {
@@ -430,19 +460,19 @@ namespace Mixed_Optimisation_Algorithm_Library
     }
     public class Data_Possibilitys
     {
-        List<Table_Possibility> Tables = new List<Table_Possibility>();
-        List<Value_Possibility> Values = new List<Value_Possibility>();
+        public List<Table_Possibility> Tables = new List<Table_Possibility>();
+        public List<Value_Possibility> Values = new List<Value_Possibility>();
     }
     public class Table_Possibility
     {
-        Simplex_Table Table = new Simplex_Table();
-        List<int> Residual = new List<int>();
-        List<Tuple<int, int>> Best_Answer = new List<Tuple<int, int>>();
+        public Simplex_Table Table = new Simplex_Table();
+        public List<int> Residual = new List<int>();
     }
     public class Value_Possibility
     {
-        int Selected_Indicator = 0;
-        int Selected_Indicators_Result = 0;
+        public int Max_Index = 0;
+        public int Min_Selected_Indicator = 0;
+        public double Min_Selected_Indicators_Result = 0;
     }
     public class Simplex_Table
     {
