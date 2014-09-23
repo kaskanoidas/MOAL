@@ -36,7 +36,9 @@ namespace Mixed_Optimisation_Algorithm_Library
         // Genetic algorithm
         private void button3_Click(object sender, EventArgs e)
         {
-            Create_Form("Genetic algorithm", out form, "");
+            Genetic_Algorithm GA = new Genetic_Algorithm();
+            string text = GA.Genetic_Algorithm_Start();
+            Create_Form("Genetic algorithm", out form, text);
         }
         // Linking Simplex and Genetic algorithms
         private void button4_Click(object sender, EventArgs e)
