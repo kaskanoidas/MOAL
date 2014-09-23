@@ -19,12 +19,11 @@ namespace Mixed_Optimisation_Algorithm_Library
         Boolean Continue_Calculation;
         Boolean Start_Sum_Process;
         Data_Possibilitys Data;
-        // Equation system we used (hardcoded):
-        // 3x1 + 5x2 + 8x3 + 10x4 + 18x5 = 3600
-        // 7x1 + x2  + 9x3 + 11x4 + 10x5 = 5010
-        // 9x1 + 3x2 + 2x3 +  8x4 +  0x5 = 3000
-        public string Optimized_Simplex_Algorithm_Start()
+        Task Global_Task;
+
+        public string Optimized_Simplex_Algorithm_Start(Task task)
         {
+            Global_Task = task;
             Simplex_Deep_Cycle();
             return Return_Optimized_Simplex_Algorithm();
         }
@@ -34,21 +33,22 @@ namespace Mixed_Optimisation_Algorithm_Library
         }
         private List<Tuple<int, int>> Reset_Best_Answer_Data()
         {
-            List<Tuple<int, int>> newAnswer = new List<Tuple<int, int>>() // 0 index == Sum value and residual, other's unknown and value
+            // 0 index == Sum value and residual, other's unknown and value
+            List<Tuple<int, int>> newAnswer = new List<Tuple<int, int>>() { };
+            newAnswer.Add(new Tuple<int, int>(0, Global_Task.Rezults.Sum()));
+            for (int i = 0; i < Global_Task.Unknown_Multipliers[0].Count; i++)
             {
-                new Tuple<int,int>(0,3600 + 5010 + 3000),
-                new Tuple<int,int>(1,0), new Tuple<int,int>(2,0), new Tuple<int,int>(3,0), 
-                new Tuple<int,int>(4,0), new Tuple<int,int>(5,0)
-            };
+                newAnswer.Add(new Tuple<int, int>(i+1, 0));
+            }
             return newAnswer;
         }
         private void Simplex_Deep_Cycle()
         {
             Best_Answer_Data = Reset_Best_Answer_Data();
-            Residual_Back = new List<int>() { 3600, 5010, 3000 }; // hardcoded results
+            Residual_Back = new List<int>(Global_Task.Rezults); // hardcoded results
             Start_Sum_Process = false;
             Continue_Calculation = true;
-            while (Continue_Calculation == true)
+            while (Continue_Calculation == true) // FIX HERE LOOP MAKES VALUES NEGATIVE
             {
                 Data = new Data_Possibilitys();
                 Make_Simplex_Tabel();
@@ -137,18 +137,18 @@ namespace Mixed_Optimisation_Algorithm_Library
             for (int i = 0; i < count; i++)
             {
                 double value = _Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
-                if (value > 0)
+                if (value >= 0)
                 {
                     min = value;
                     mn = i;
                     i = count;
                 }
             }
-            if (min != -1)
+            if (mn != -1)
             {
                 for (int i = 0; i < count; i++)
                 {
-                    if (Row_List[i].Row_Values[Max_Index] > 0)
+                    if (Row_List[i].Row_Values[Max_Index] >= 0)
                     {
                         double tikrinti = _Table.Selected_Indicators_Result[i] / Row_List[i].Row_Values[Max_Index];
                         if (tikrinti < min && tikrinti > 0)
@@ -177,6 +177,10 @@ namespace Mixed_Optimisation_Algorithm_Library
                         }
                     }
                 }
+            }
+            else
+            {
+
             }
         }
         private Boolean Simplex_Cycle_Step(ref Simplex_Table _Table, ref List<int> Residual, int Index)
@@ -214,29 +218,31 @@ namespace Mixed_Optimisation_Algorithm_Library
             Table = new Simplex_Table(); Table_Back = new Simplex_Table();         // Back = hard-copy of table
             Row row; Row row_Back;
 
-            Table.Selected_Indicator.AddRange(new List<int>() { -1, -1, -1 });
-            Table_Back.Selected_Indicator.AddRange(new List<int>() { -1, -1, -1 });
+            for (int i = 0; i < Global_Task.Rezults.Count; i++)
+            {
+                Table.Selected_Indicator.Add(-1);
+                Table_Back.Selected_Indicator.Add(-1);
+            }
             Table.Selected_Indicators_Result.AddRange(Residual_Back);
             Table_Back.Selected_Indicators_Result.AddRange(Residual_Back);
 
-            row = new Row(); row_Back = new Row();
-            row.Row_Values.AddRange(new List<double>() { 3, 5, 8, 10, 18 });
-            row_Back.Row_Values.AddRange(new List<double>() { 3, 5, 8, 10, 18 });
-            Table.Rows.Add(row); Table_Back.Rows.Add(row_Back);
+            for (int i = 0; i < Global_Task.Unknown_Multipliers.Count; i++)
+            {
+                row = new Row(); row_Back = new Row();
+                for (int j = 0; j < Global_Task.Unknown_Multipliers[i].Count; j++)
+                {
+                    row.Row_Values.Add(Global_Task.Unknown_Multipliers[i][j]);
+                    row_Back.Row_Values.Add(Global_Task.Unknown_Multipliers[i][j]);
+                }
+                Table.Rows.Add(row); Table_Back.Rows.Add(row_Back);
+            }
 
             row = new Row(); row_Back = new Row();
-            row.Row_Values.AddRange(new List<double>() { 7, 1, 9, 11, 10 });
-            row_Back.Row_Values.AddRange(new List<double>() { 7, 1, 9, 11, 10 });
-            Table.Rows.Add(row); Table_Back.Rows.Add(row_Back);
-
-            row = new Row(); row_Back = new Row();
-            row.Row_Values.AddRange(new List<double>() { 9, 3, 2, 8, 0 });
-            row_Back.Row_Values.AddRange(new List<double>() { 9, 3, 2, 8, 0 });
-            Table.Rows.Add(row); Table_Back.Rows.Add(row_Back);
-
-            row = new Row(); row_Back = new Row();
-            row.Row_Values.AddRange(new List<double>() { 1, 1, 1, 1, 1 });
-            row_Back.Row_Values.AddRange(new List<double>() { 1, 1, 1, 1, 1 });
+            for (int j = 0; j < Global_Task.Unknown_Multipliers[0].Count; j++)
+            {
+                row.Row_Values.Add(1);
+                row_Back.Row_Values.Add(1);
+            }
             Table.Rows.Add(row); Table_Back.Rows.Add(row_Back);
         }
         private Simplex_Table Make_Simplex_Tabel_Copy(Simplex_Table Table_To_Copy)
@@ -450,10 +456,22 @@ namespace Mixed_Optimisation_Algorithm_Library
                 }
             }
             Answer += "\n";
-            Answer += "3x1 + 5x2 + 8x3 + 10x4 + 18x5 = 3600" + "  The residual is " + Residual[0] + "\n";
-            Answer += "7x1 + x2  + 9x3 + 11x4 + 10x5 = 5010" + "  The residual is " + Residual[1] + "\n";
-            Answer += "9x1 + 3x2 + 2x3 +  8x4 +  0x5 = 3000" + "  The residual is " + Residual[2] + "\n";
-            Answer += "Sum of the residuals: " + (Residual[0] + Residual[1] + Residual[2]) + "\n";
+            for (int i = 0; i < Global_Task.Rezults.Count; i++)
+            {
+                for (int j = 0; j < Global_Task.Unknown_Multipliers[i].Count; j++) 
+                {
+                    if (j != Global_Task.Unknown_Multipliers[i].Count - 1)
+                    {
+                        Answer += Global_Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " + ";
+                    }
+                    else
+                    {
+                        Answer += Global_Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " = ";
+                    }
+                }
+                Answer += Global_Task.Rezults[i] + "  The residual is " + Residual[i] + "\n";
+            }
+            Answer += "Sum of the residuals: " + (Residual.Sum()) + "\n";
             Answer += "Sum of the unknows values: " + Sum_Answers + "\n";
             Answer += "\n";
         }

@@ -19,6 +19,16 @@ namespace Mixed_Optimisation_Algorithm_Library
         }
         // Global variables
         Form form = new Form();
+        //Task task = new Task();
+        Task task = new Task(new List<int>() { 3600, 5010, 3000, 7100, 9000 }, new List<List<int>>() 
+            {
+                new List<int>(){3,5,8,10,18},
+                new List<int>(){7,1,9,11,10},
+                new List<int>(){9,3,2,8,0},
+                new List<int>(){15,8,7,7,3},
+                new List<int>(){0,20,1,11,12},
+            });
+
         // Combinatorics algorithm
         private void button1_Click(object sender, EventArgs e)
         {
@@ -30,14 +40,14 @@ namespace Mixed_Optimisation_Algorithm_Library
         private void button2_Click(object sender, EventArgs e)
         {
             Optimized_Simplex_Algorithm OSA = new Optimized_Simplex_Algorithm();
-            string text = OSA.Optimized_Simplex_Algorithm_Start();
+            string text = OSA.Optimized_Simplex_Algorithm_Start(task);
             Create_Form("Optimized Simplex algorithm", out form, text);
         }
         // Genetic algorithm
         private void button3_Click(object sender, EventArgs e)
         {
             Genetic_Algorithm GA = new Genetic_Algorithm();
-            string text = GA.Genetic_Algorithm_Start();
+            string text = GA.Genetic_Algorithm_Start(task);
             Create_Form("Genetic algorithm", out form, text);
         }
         // Linking Simplex and Genetic algorithms

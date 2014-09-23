@@ -14,8 +14,9 @@ namespace Mixed_Optimisation_Algorithm_Library
         string Answer;
         int Number_Of_Unique_Unkowns;
         int Number_Of_Results;
-        public string Genetic_Algorithm_Start()
+        public string Genetic_Algorithm_Start(Task task)
         {
+            Task = task;
             Generate_Task();
             Genetic_Algorithm_Loop();
             return Return_Genetic_Algorithm();
@@ -31,9 +32,21 @@ namespace Mixed_Optimisation_Algorithm_Library
                 }
             }
             Answer += "\n";
-            Answer += "3x1 + 5x2 + 8x3 + 10x4 + 18x5 = 3600" + "  The residual is " + Solution_List[0].Residuals[0] + "\n";
-            Answer += "7x1 + x2  + 9x3 + 11x4 + 10x5 = 5010" + "  The residual is " + Solution_List[0].Residuals[1] + "\n";
-            Answer += "9x1 + 3x2 + 2x3 +  8x4 +  0x5 = 3000" + "  The residual is " + Solution_List[0].Residuals[2] + "\n";
+            for (int i = 0; i < Task.Rezults.Count; i++)
+            {
+                for (int j = 0; j < Task.Unknown_Multipliers[i].Count; j++)
+                {
+                    if (j != Task.Unknown_Multipliers[i].Count - 1)
+                    {
+                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " + ";
+                    }
+                    else
+                    {
+                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " = ";
+                    }
+                }
+                Answer += Task.Rezults[i] + "  The residual is " + Solution_List[0].Residuals[i] + "\n";
+            }
             Answer += "Sum of the residuals: " + (Solution_List[0].Residuals_Sum) + "\n";
             Answer += "Sum of the unknows values: " + Solution_List[0].Unknowns_Sum + "\n";
             Answer += "\n";
@@ -73,6 +86,8 @@ namespace Mixed_Optimisation_Algorithm_Library
             for(int Made_Items = 0; Made_Items < Number_To_Make; Made_Items++)
             {
                 Solution New_Solution = new Solution();
+                New_Solution.Residuals.AddRange(Task.Rezults);
+                New_Solution.Residuals_Sum = Task.Rezults.Sum();
                 List<int> UnusedUnkowns = new List<int>(Enumerable.Range(0,Number_Of_Unique_Unkowns));
                 while (UnusedUnkowns.Count != 0)
                 {
@@ -127,6 +142,8 @@ namespace Mixed_Optimisation_Algorithm_Library
                 for (int j = 0; j < Generation_Ratio; j++)
                 {
                     Solution New_Solution = new Solution();
+                    New_Solution.Residuals.AddRange(Task.Rezults);
+                    New_Solution.Residuals_Sum = Task.Rezults.Sum();
                     for (int h = 0; h < New_Solution.Unknowns.Count; h++)
                     {
                         int New_Value = Convert.ToInt32(New_Solution.Unknowns[h] * Generation_Aggression);
@@ -170,6 +187,8 @@ namespace Mixed_Optimisation_Algorithm_Library
                     }
                 }
                 Solution Solution_Holder = new Solution();
+                Solution_Holder.Residuals.AddRange(Task.Rezults);
+                Solution_Holder.Residuals_Sum = Task.Rezults.Sum();
                 Solution_Holder.Residuals.Clear(); Solution_Holder.Residuals.AddRange(Solution_List[mx].Residuals);
                 Solution_Holder.Unknowns.Clear(); Solution_Holder.Unknowns.AddRange(Solution_List[mx].Unknowns);
                 Solution_Holder.Residuals_Sum = Solution_List[mx].Residuals_Sum;
@@ -183,18 +202,8 @@ namespace Mixed_Optimisation_Algorithm_Library
     public class Solution
     {
         public List<int> Unknowns = new List<int>(){0,0,0,0,0};
-        public List<int> Residuals = new List<int>(){3600,5010,3000};
+        public List<int> Residuals = new List<int>(){};
         public int Unknowns_Sum = 0;
-        public int Residuals_Sum = 3600 + 5010 + 3000;
-    }
-    public class Task
-    {
-        public List<int> Rezults = new List<int>(){3600,5010,3000};
-        public List<List<int>> Unknown_Multipliers = new List<List<int>>() 
-        {
-            new List<int>(){3,5,8,10,18},
-            new List<int>(){7,1,9,11,10},
-            new List<int>(){9,3,2,8,0},
-        };
+        public int Residuals_Sum = 0;
     }
 }
