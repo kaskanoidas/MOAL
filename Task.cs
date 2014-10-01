@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+// Mixed Optimisation Algorithm TM Gludis 2014, Created by: Rolandas Rimkus
 namespace Mixed_Optimisation_Algorithm_Library
 {
     // Equation system we used (hardcoded):
@@ -26,8 +27,8 @@ namespace Mixed_Optimisation_Algorithm_Library
         }
         public Task(List<int> _Rezults, List<List<int>> _Unknown_Multipliers)
         {
-            this.Rezults = _Rezults;
-            this.Unknown_Multipliers = _Unknown_Multipliers;
+            this.Rezults = new List<int>(_Rezults);
+            this.Unknown_Multipliers = new List<List<int>>(_Unknown_Multipliers);
         }
     }
 }

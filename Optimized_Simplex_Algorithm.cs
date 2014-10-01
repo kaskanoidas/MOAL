@@ -20,12 +20,13 @@ namespace Mixed_Optimisation_Algorithm_Library
         Boolean Start_Sum_Process;
         Data_Possibilitys Data;
         Task Global_Task;
+        List<Solution> Solution_List;
 
-        public string Optimized_Simplex_Algorithm_Start(Task task)
+        public Tuple<string,List<Solution>> Optimized_Simplex_Algorithm_Start(Task task)
         {
             Global_Task = task;
             Simplex_Deep_Cycle();
-            return Return_Optimized_Simplex_Algorithm();
+            return new Tuple<string, List<Solution>>(Return_Optimized_Simplex_Algorithm(), Solution_List);
         }
         private string Return_Optimized_Simplex_Algorithm()
         {
@@ -46,9 +47,10 @@ namespace Mixed_Optimisation_Algorithm_Library
         {
             Best_Answer_Data = Reset_Best_Answer_Data();
             Residual_Back = new List<int>(Global_Task.Rezults); // hardcoded results
+            Solution_List = new List<Solution>() { };
             Start_Sum_Process = false;
             Continue_Calculation = true;
-            while (Continue_Calculation == true) // FIX HERE LOOP MAKES VALUES NEGATIVE
+            while (Continue_Calculation == true)
             {
                 Data = new Data_Possibilitys();
                 Make_Simplex_Tabel();
@@ -87,6 +89,7 @@ namespace Mixed_Optimisation_Algorithm_Library
                 {
                     if (Simplex_Cycle_Step(ref Data.Tables[i].Table, ref Data.Tables[i].Residual, i) == false)
                     {
+                        // Save to Solution_List
                         Data.Tables.RemoveAt(i);
                         Data.Values.RemoveAt(i);
                         i--; count--;
@@ -379,6 +382,21 @@ namespace Mixed_Optimisation_Algorithm_Library
         }
         private Boolean Test_Simplex_Answer(Simplex_Table Table, List<int> Residual)
         {
+            Solution Solution = new Solution(Residual, Residual.Sum());
+            for (int j = 0; j < Table.Selected_Indicator.Count; j++)
+            {
+                int index = Table.Selected_Indicator[j];
+                if (index >= 0)
+                {
+                    Solution.Unknowns[index] = Table.Selected_Indicators_Result[j];
+                }
+            }
+            Solution.Unknowns_Sum = Solution.Unknowns.Sum();
+            if (Solution.Unknowns_Sum > 0)
+            {
+                Solution_List.Add(Solution);
+            }
+
             int Sum_Answers = 0;
             List<int> Row = Table.Selected_Indicators_Result;
             int count = Row.Count;

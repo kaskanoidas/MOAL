@@ -14,9 +14,10 @@ namespace Mixed_Optimisation_Algorithm_Library
         string Answer;
         int Number_Of_Unique_Unkowns;
         int Number_Of_Results;
-        public string Genetic_Algorithm_Start(Task task)
+        public string Genetic_Algorithm_Start(Task task, List<Solution> Solutions)
         {
             Task = task;
+            Solution_List = new List<Solution>(Solutions);
             Generate_Task();
             Genetic_Algorithm_Loop();
             return Return_Genetic_Algorithm();
@@ -61,7 +62,10 @@ namespace Mixed_Optimisation_Algorithm_Library
         {
             int NumberOfLoops = 10000; // change this number for longer but better solution.
             int CurrentLoopNumber = 0;
-            Generate_Starting_Solutions(Number_Of_Unique_Unkowns * Number_Of_Results);
+            if (Solution_List.Count == 0)
+            {
+                Generate_Starting_Solutions(Number_Of_Unique_Unkowns * Number_Of_Results);
+            }
             Validate_Solutions(0);
             int Best_Answer_Sum = Solution_List[0].Unknowns_Sum;
             while (CurrentLoopNumber != NumberOfLoops)
@@ -85,9 +89,7 @@ namespace Mixed_Optimisation_Algorithm_Library
             Solution_List = new List<Solution>() { };
             for(int Made_Items = 0; Made_Items < Number_To_Make; Made_Items++)
             {
-                Solution New_Solution = new Solution();
-                New_Solution.Residuals.AddRange(Task.Rezults);
-                New_Solution.Residuals_Sum = Task.Rezults.Sum();
+                Solution New_Solution = new Solution(Task.Rezults, Task.Rezults.Sum());
                 List<int> UnusedUnkowns = new List<int>(Enumerable.Range(0,Number_Of_Unique_Unkowns));
                 while (UnusedUnkowns.Count != 0)
                 {
@@ -141,9 +143,7 @@ namespace Mixed_Optimisation_Algorithm_Library
             {
                 for (int j = 0; j < Generation_Ratio; j++)
                 {
-                    Solution New_Solution = new Solution();
-                    New_Solution.Residuals.AddRange(Task.Rezults);
-                    New_Solution.Residuals_Sum = Task.Rezults.Sum();
+                    Solution New_Solution = new Solution(Task.Rezults, Task.Rezults.Sum());
                     for (int h = 0; h < New_Solution.Unknowns.Count; h++)
                     {
                         int New_Value = Convert.ToInt32(New_Solution.Unknowns[h] * Generation_Aggression);
@@ -187,8 +187,6 @@ namespace Mixed_Optimisation_Algorithm_Library
                     }
                 }
                 Solution Solution_Holder = new Solution();
-                Solution_Holder.Residuals.AddRange(Task.Rezults);
-                Solution_Holder.Residuals_Sum = Task.Rezults.Sum();
                 Solution_Holder.Residuals.Clear(); Solution_Holder.Residuals.AddRange(Solution_List[mx].Residuals);
                 Solution_Holder.Unknowns.Clear(); Solution_Holder.Unknowns.AddRange(Solution_List[mx].Unknowns);
                 Solution_Holder.Residuals_Sum = Solution_List[mx].Residuals_Sum;
@@ -198,12 +196,5 @@ namespace Mixed_Optimisation_Algorithm_Library
             }
             Solution_List = Validated_Solution_List;
         }
-    }
-    public class Solution
-    {
-        public List<int> Unknowns = new List<int>(){0,0,0,0,0};
-        public List<int> Residuals = new List<int>(){};
-        public int Unknowns_Sum = 0;
-        public int Residuals_Sum = 0;
     }
 }

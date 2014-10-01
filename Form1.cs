@@ -40,20 +40,26 @@ namespace Mixed_Optimisation_Algorithm_Library
         private void button2_Click(object sender, EventArgs e)
         {
             Optimized_Simplex_Algorithm OSA = new Optimized_Simplex_Algorithm();
-            string text = OSA.Optimized_Simplex_Algorithm_Start(task);
+            Tuple<string,List<Solution>> Results = OSA.Optimized_Simplex_Algorithm_Start(task);
+            string text = Results.Item1;
             Create_Form("Optimized Simplex algorithm", out form, text);
         }
         // Genetic algorithm
         private void button3_Click(object sender, EventArgs e)
         {
             Genetic_Algorithm GA = new Genetic_Algorithm();
-            string text = GA.Genetic_Algorithm_Start(task);
+            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>() { });
             Create_Form("Genetic algorithm", out form, text);
         }
         // Linking Simplex and Genetic algorithms
         private void button4_Click(object sender, EventArgs e)
         {
-            Create_Form("Linking Simplex and Genetic algorithms", out form, "");
+            Optimized_Simplex_Algorithm OSA = new Optimized_Simplex_Algorithm();
+            Tuple<string, List<Solution>> Results = OSA.Optimized_Simplex_Algorithm_Start(task);
+            Genetic_Algorithm GA = new Genetic_Algorithm();
+            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>(Results.Item2));
+
+            Create_Form("Linking Simplex and Genetic algorithms", out form, text);
         }
         // Multi-Threading with Genetic algorithm
         private void button5_Click(object sender, EventArgs e)
