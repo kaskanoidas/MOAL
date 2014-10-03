@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Combinatorics.Collections;
+using System.Diagnostics;
 
 // Mixed Optimisation Algorithm TM Gludis 2014, Created by: Rolandas Rimkus
 namespace Mixed_Optimisation_Algorithm_Library
@@ -28,7 +29,7 @@ namespace Mixed_Optimisation_Algorithm_Library
             combinationsList = new List<Combinations<string>> { };
             combinationsCounts = new List<long> { };
             combinationsTimeTaken = new List<long> { };
-            DateTime Start = DateTime.Now;
+            Stopwatch time = Stopwatch.StartNew();
             for (int i = 1; i < 18; i++)
             {
                 List<string> inputSet = new List<string> { };
@@ -38,8 +39,8 @@ namespace Mixed_Optimisation_Algorithm_Library
                 combinationsList.Add(combinations);
                 combinationsCounts.Add(combinations.Count);
             }
-            DateTime End = DateTime.Now;
-            combinationsTimeTaken.Add((End.Ticks - Start.Ticks) / 10000);
+            time.Stop();
+            combinationsTimeTaken.Add(time.ElapsedMilliseconds);
         }
         private string Return_Combinations()
         {
@@ -51,7 +52,7 @@ namespace Mixed_Optimisation_Algorithm_Library
             int Num = 1;
             foreach (Combinations<string> combination in combinationsList)
             {
-                DateTime Start = DateTime.Now;
+                Stopwatch time = Stopwatch.StartNew();
                 foreach (IList<string> Element in combination)
                 {
                     foreach (string String in Element)
@@ -59,10 +60,9 @@ namespace Mixed_Optimisation_Algorithm_Library
                     CombinationString += '\n';
                 }
                 CombinationString += '\n';
-                DateTime End = DateTime.Now;
-                long ticks = (End.Ticks - Start.Ticks) / 10000;
-                combinationsTimeTaken.Add(ticks);
-                TimeString += Num.ToString() + ") " + (ticks).ToString() + '\n';
+                time.Stop();
+                combinationsTimeTaken.Add(time.ElapsedMilliseconds);
+                TimeString += Num.ToString() + ") " + (time.ElapsedMilliseconds).ToString() + '\n';
                 Num++;
             }
             CombinationString = TimeString + CombinationString;

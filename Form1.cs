@@ -48,7 +48,7 @@ namespace Mixed_Optimisation_Algorithm_Library
         private void button3_Click(object sender, EventArgs e)
         {
             Genetic_Algorithm GA = new Genetic_Algorithm();
-            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>() { });
+            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>() { }, 1);
             Create_Form("Genetic algorithm", out form, text);
         }
         // Linking Simplex and Genetic algorithms
@@ -57,44 +57,21 @@ namespace Mixed_Optimisation_Algorithm_Library
             Optimized_Simplex_Algorithm OSA = new Optimized_Simplex_Algorithm();
             Tuple<string, List<Solution>> Results = OSA.Optimized_Simplex_Algorithm_Start(task);
             Genetic_Algorithm GA = new Genetic_Algorithm();
-            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>(Results.Item2));
+            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>(Results.Item2), 1);
 
             Create_Form("Linking Simplex and Genetic algorithms", out form, text);
         }
         // Multi-Threading with Genetic algorithm
         private void button5_Click(object sender, EventArgs e)
         {
-            Create_Form("Multi-Threading with Genetic algorithm", out form, "");
+            Genetic_Algorithm GA = new Genetic_Algorithm();
+            string text = GA.Genetic_Algorithm_Start(task, new List<Solution>() { }, 10);
+            Create_Form("Multi-Threading with Genetic algorithm", out form, text);
         }
         // Multi-Threading with Simplex algorithm
         private void button6_Click(object sender, EventArgs e)
         {
             Create_Form("Multi-Threading with Simplex algorithm", out form, "");
-        }
-        // Linking all algorithms together
-        private void button7_Click(object sender, EventArgs e)
-        {
-            Create_Form("Linking all algorithms together", out form, "");
-        }
-        // Combinatorics algorithm rules handling
-        private void button8_Click(object sender, EventArgs e)
-        {
-            Create_Form("Combinatorics algorithm rules handling", out form, "");
-        }
-        // Optimized Simplex algorithm rules handling
-        private void button9_Click(object sender, EventArgs e)
-        {
-            Create_Form("Optimized Simplex algorithm rules handling", out form, "");
-        }
-        // Genetic algorithm rules handling
-        private void button10_Click(object sender, EventArgs e)
-        {
-            Create_Form("Genetic algorithm rules handling", out form, "");
-        }
-        // Time, CPU and memory handling
-        private void button11_Click(object sender, EventArgs e)
-        {
-            Create_Form("Time, CPU and memory handling", out form, "");
         }
         // UI form create
         private void Create_Form(string header, out Form MyForm, string text)

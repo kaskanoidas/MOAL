@@ -28,5 +28,12 @@ namespace Mixed_Optimisation_Algorithm_Library
             this.Residuals = new List<int>(_Residuals);
             this.Residuals_Sum = Residuals_Sum;
         }
+        public Solution(Solution _Solution)
+        {
+            this.Residuals = new List<int>() { }; this.Residuals.AddRange(_Solution.Residuals);
+            this.Unknowns = new List<int>() { }; this.Unknowns.AddRange(_Solution.Unknowns);
+            this.Residuals_Sum = _Solution.Residuals_Sum;
+            this.Unknowns_Sum = _Solution.Unknowns_Sum;
+        }
     }
 }

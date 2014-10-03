@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 // Mixed Optimisation Algorithm TM Gludis 2014, Created by: Rolandas Rimkus
 namespace Mixed_Optimisation_Algorithm_Library
@@ -24,9 +25,11 @@ namespace Mixed_Optimisation_Algorithm_Library
 
         public Tuple<string,List<Solution>> Optimized_Simplex_Algorithm_Start(Task task)
         {
+            Stopwatch time = Stopwatch.StartNew();
             Global_Task = task;
             Simplex_Deep_Cycle();
-            return new Tuple<string, List<Solution>>(Return_Optimized_Simplex_Algorithm(), Solution_List);
+            time.Stop();
+            return new Tuple<string, List<Solution>>(Return_Optimized_Simplex_Algorithm() + "\n Time taken to calculate: " + time.ElapsedMilliseconds.ToString() + " Milliseconds", Solution_List);
         }
         private string Return_Optimized_Simplex_Algorithm()
         {

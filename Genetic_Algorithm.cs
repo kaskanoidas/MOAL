@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 
 // Mixed Optimisation Algorithm TM Gludis 2014, Created by: Rolandas Rimkus
 namespace Mixed_Optimisation_Algorithm_Library
@@ -14,22 +16,36 @@ namespace Mixed_Optimisation_Algorithm_Library
         string Answer;
         int Number_Of_Unique_Unkowns;
         int Number_Of_Results;
-        public string Genetic_Algorithm_Start(Task task, List<Solution> Solutions)
+        int Thread_Count_Running;
+        private AutoResetEvent Wait_For_Thread_End = new AutoResetEvent(false);
+        ConcurrentStack<Solution> Solution_List_Threading = new ConcurrentStack<Solution> { };
+        ConcurrentStack<int> Thread_End_Counter = new ConcurrentStack<int> { };
+        string Type; int count; double argument; int NumberOfThreads;
+        CountdownEvent e;
+
+        public string Genetic_Algorithm_Start(Task task, List<Solution> Solutions, int _NumberOfThreads)
         {
+            Stopwatch time = Stopwatch.StartNew();
             Task = task;
             Solution_List = new List<Solution>(Solutions);
             Generate_Task();
-            Genetic_Algorithm_Loop();
-            return Return_Genetic_Algorithm();
+            NumberOfThreads = _NumberOfThreads;
+            ThreadPool.SetMaxThreads(_NumberOfThreads + 1, 4);
+            Thread MainThread = new Thread(new ThreadStart(Genetic_Algorithm_Loop));
+            MainThread.Start();
+            MainThread.Join();
+            string answ = Return_Genetic_Algorithm();
+            time.Stop();
+            return answ + "\n Time taken for calculation: " + time.ElapsedMilliseconds.ToString() + " Milliseconds";
         }
         private string Return_Genetic_Algorithm()
         {
             Answer = "The best solution that the Genetic algorithm calculated: \n \n";
-            for (int i = 0; i < Solution_List[0].Unknowns.Count;i++ )
+            for (int i = 0; i < Solution_List[0].Unknowns.Count; i++)
             {
                 if (Solution_List[0].Unknowns[i] > 0)
                 {
-                    Answer += "x" + (i + 1) + " = " + Solution_List[0].Unknowns[i] + "; "; 
+                    Answer += "x" + (i + 1) + " = " + Solution_List[0].Unknowns[i] + "; ";
                 }
             }
             Answer += "\n";
@@ -39,11 +55,11 @@ namespace Mixed_Optimisation_Algorithm_Library
                 {
                     if (j != Task.Unknown_Multipliers[i].Count - 1)
                     {
-                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " + ";
+                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j + 1) + " + ";
                     }
                     else
                     {
-                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " = ";
+                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j + 1) + " = ";
                     }
                 }
                 Answer += Task.Rezults[i] + "  The residual is " + Solution_List[0].Residuals[i] + "\n";
@@ -53,20 +69,26 @@ namespace Mixed_Optimisation_Algorithm_Library
             Answer += "\n";
             return Answer;
         }
-        private void Generate_Task() 
+        private void Generate_Task()
         {
             Number_Of_Unique_Unkowns = Task.Unknown_Multipliers[0].Count;
             Number_Of_Results = Task.Rezults.Count;
         }
         private void Genetic_Algorithm_Loop()
         {
-            int NumberOfLoops = 10000; // change this number for longer but better solution.
+            int NumberOfLoops = 100; // change this number for longer but better solution.
             int CurrentLoopNumber = 0;
-            if (Solution_List.Count == 0)
+            int How_Many_To_Generate = (Number_Of_Unique_Unkowns * Number_Of_Results * 1000 ) - Solution_List.Count; // 100
+            if (How_Many_To_Generate > 0)
             {
-                Generate_Starting_Solutions(Number_Of_Unique_Unkowns * Number_Of_Results);
+                Generate_Starting_Solutions(How_Many_To_Generate);
+                Validate_Solutions(0.9);
             }
-            Validate_Solutions(0);
+            else
+            {
+                Validate_Solutions(0);
+                Solution_List.RemoveRange(Solution_List.Count - How_Many_To_Generate, How_Many_To_Generate);
+            }
             int Best_Answer_Sum = Solution_List[0].Unknowns_Sum;
             while (CurrentLoopNumber != NumberOfLoops)
             {
@@ -85,9 +107,22 @@ namespace Mixed_Optimisation_Algorithm_Library
         }
         private void Generate_Starting_Solutions(int Number_To_Make)
         {
+            Solution_List_Threading = new ConcurrentStack<Solution>() { };
+            count = Number_To_Make / NumberOfThreads;
+            using (e = new CountdownEvent(NumberOfThreads))
+            {
+                for (int i = 0; i < NumberOfThreads; i++)
+                {
+                    ThreadPool.QueueUserWorkItem(new WaitCallback(Generate_Starting_Solutions));
+                }
+                e.Wait();
+            }
+            Solution_List.AddRange(Solution_List_Threading.ToList());
+        }
+        private void Generate_Starting_Solutions(object Thread_Info)
+        {
             Random Random_Number = new Random();
-            Solution_List = new List<Solution>() { };
-            for(int Made_Items = 0; Made_Items < Number_To_Make; Made_Items++)
+            for (int Made_Items = 0; Made_Items < count; Made_Items++)
             {
                 Solution New_Solution = new Solution(Task.Rezults, Task.Rezults.Sum());
                 List<int> UnusedUnkowns = new List<int>(Enumerable.Range(0,Number_Of_Unique_Unkowns));
@@ -106,8 +141,9 @@ namespace Mixed_Optimisation_Algorithm_Library
                         UnusedUnkowns.RemoveAt(Random_Unknown_Picked);
                     }
                 }
-                Solution_List.Add(New_Solution);
+                Solution_List_Threading.Push(New_Solution);
             }
+            e.Signal();
         }
         private int Find_Max_Unknown_Value(int Unknown_Nr, Solution _Solution)
         {
@@ -135,18 +171,41 @@ namespace Mixed_Optimisation_Algorithm_Library
                 _Solution.Residuals_Sum -= SubTr;
             }
         }
-        private void Generate_Children_Solutions(double Generation_Ratio, double Generation_Aggression)
+        private void Generate_Children_Solutions(int Generation_Ratio, double Generation_Aggression)
+        {
+            Solution_List_Threading = new ConcurrentStack<Solution>() { };
+            if (NumberOfThreads != 1)
+            {
+                count = 1;
+            }
+            else
+            {
+                count = Generation_Ratio;
+                Generation_Ratio = 1;
+            }
+            argument = Generation_Aggression;
+            using (e = new CountdownEvent(Generation_Ratio))
+            {
+                for (int i = 0; i < Generation_Ratio; i++)
+                {
+                    ThreadPool.QueueUserWorkItem(new WaitCallback(Generate_Children_Solutions));
+                }
+                e.Wait();
+            }
+            Solution_List.AddRange(Solution_List_Threading);
+        }
+        private void Generate_Children_Solutions(object Thread_Info)
         {
             Random Random_Number = new Random();
             int Original_Count = Solution_List.Count;
             for (int i = 0; i < Original_Count; i++)
             {
-                for (int j = 0; j < Generation_Ratio; j++)
+                for (int j = 0; j < count; j++)
                 {
-                    Solution New_Solution = new Solution(Task.Rezults, Task.Rezults.Sum());
+                    Solution New_Solution = new Solution(Solution_List[i]);
                     for (int h = 0; h < New_Solution.Unknowns.Count; h++)
                     {
-                        int New_Value = Convert.ToInt32(New_Solution.Unknowns[h] * Generation_Aggression);
+                        int New_Value = Convert.ToInt32(New_Solution.Unknowns[h] * argument);
                         New_Solution.Unknowns[h] = New_Value;
                         Reduce_Residuals(h, New_Value - New_Solution.Unknowns[h], ref New_Solution);
                     }
@@ -166,35 +225,70 @@ namespace Mixed_Optimisation_Algorithm_Library
                             UnusedUnkowns.RemoveAt(Random_Unknown_Picked);
                         }
                     }
-                    Solution_List.Add(New_Solution);
+                    Solution_List_Threading.Push(New_Solution);
                 }
             }
+            e.Signal();
         }
         private void Validate_Solutions(double Removal_Ratio)
         {
-            int Number_Of_Kept_Solutions = Convert.ToInt32(Solution_List.Count * (1 - Removal_Ratio)); 
-            List<Solution> Validated_Solution_List = new List<Solution>() { };
-            for (int i = 0; i < Number_Of_Kept_Solutions; i++)
+            Solution_List_Threading = new ConcurrentStack<Solution>() { };
+            List<Solution> Holder = new List<Solution>() { };
+            count = Convert.ToInt32(Solution_List.Count * (1 - Removal_Ratio));
+            int Count_Original = count;
+            for (int n = 0; n < Count_Original; n++)
             {
+                using (e = new CountdownEvent(NumberOfThreads))
+                {
+                    for (int i = 0; i < NumberOfThreads; i++)
+                    {
+                        ThreadPool.QueueUserWorkItem(new WaitCallback(Validate_Solutions), i);
+                    }
+                    e.Wait();
+                }
                 int max = -1;
                 int mx = -1;
-                for(int j = 0; j < Solution_List.Count; j++)
+                for (int i = 0; i < Solution_List_Threading.Count; i++)
                 {
-                    if (max < Solution_List[j].Unknowns_Sum)
+                    if (max < Solution_List_Threading.ElementAt(i).Unknowns_Sum)
                     {
-                        max = Solution_List[j].Unknowns_Sum;
-                        mx = j;
+                        max = Solution_List_Threading.ElementAt(i).Unknowns_Sum;
+                        mx = i;
                     }
                 }
-                Solution Solution_Holder = new Solution();
-                Solution_Holder.Residuals.Clear(); Solution_Holder.Residuals.AddRange(Solution_List[mx].Residuals);
-                Solution_Holder.Unknowns.Clear(); Solution_Holder.Unknowns.AddRange(Solution_List[mx].Unknowns);
-                Solution_Holder.Residuals_Sum = Solution_List[mx].Residuals_Sum;
-                Solution_Holder.Unknowns_Sum = Solution_List[mx].Unknowns_Sum;
-                Validated_Solution_List.Add(Solution_Holder);
+                Holder.Add(new Solution(Solution_List_Threading.ElementAt(mx)));
+                Solution_List_Threading.Clear();
                 Solution_List.RemoveAt(mx);
+                count = Convert.ToInt32(Solution_List.Count * (1 - Removal_Ratio));
             }
-            Solution_List = Validated_Solution_List;
+            Solution_List = new List<Solution>(Holder); Holder.Clear();
+        }
+        private void Validate_Solutions(object Thread_Info)
+        {
+            int start = count / NumberOfThreads * (int)Thread_Info;
+            int end = count / NumberOfThreads * ((int)Thread_Info + 1);
+            if ((int)Thread_Info < Solution_List.Count)
+            {
+                if (end == 0)
+                {
+                    Solution_List_Threading.Push(new Solution(Solution_List[(int)Thread_Info]));
+                }
+                else
+                {
+                    int max = -1;
+                    int mx = -1;
+                    for (int i = start; i < end; i++)
+                    {
+                        if (max < Solution_List[i].Unknowns_Sum)
+                        {
+                            max = Solution_List[i].Unknowns_Sum;
+                            mx = i;
+                        }
+                    }
+                    Solution_List_Threading.Push(new Solution(Solution_List[mx]));
+                }
+            }
+            e.Signal();
         }
     }
 }
