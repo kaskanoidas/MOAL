@@ -22,15 +22,15 @@ namespace Mixed_Optimisation_Algorithm_Library
         ConcurrentStack<int> Thread_End_Counter = new ConcurrentStack<int> { };
         string Type; int count; double argument; int NumberOfThreads;
         CountdownEvent e;
+        Stopwatch time;
 
         public string Genetic_Algorithm_Start(Task task, List<Solution> Solutions, int _NumberOfThreads)
         {
-            Stopwatch time = Stopwatch.StartNew();
+            time = Stopwatch.StartNew();
             Task = task;
             Solution_List = new List<Solution>(Solutions);
             Generate_Task();
             NumberOfThreads = _NumberOfThreads;
-            ThreadPool.SetMaxThreads(_NumberOfThreads + 1, 4);
             Thread MainThread = new Thread(new ThreadStart(Genetic_Algorithm_Loop));
             MainThread.Start();
             MainThread.Join();
