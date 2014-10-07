@@ -14,19 +14,19 @@ namespace Mixed_Optimisation_Algorithm_Library
         public int Unknowns_Sum;
         public int Residuals_Sum;
 
-        public Solution()
+        public Solution(List<int> _Unknowns)
         {
+            this.Residuals = new List<int>() { };
+            this.Unknowns = new List<int>() { }; this.Unknowns.AddRange(_Unknowns);
             this.Residuals_Sum = 0;
             this.Unknowns_Sum = 0;
-            this.Residuals = new List<int>() { };
-            this.Unknowns = new List<int>() { 0, 0, 0, 0, 0 };
         }
-        public Solution(List<int> _Residuals, int Residuals_Sum)
+        public Solution(List<int> _Residuals, int Residuals_Sum, List<int> _Unknowns)
         {
-            this.Unknowns_Sum = 0;
-            this.Unknowns = new List<int>() { 0, 0, 0, 0, 0 };
-            this.Residuals = new List<int>(_Residuals);
+            this.Residuals = new List<int>(_Residuals); 
+            this.Unknowns = new List<int>() { }; this.Unknowns.AddRange(_Unknowns);
             this.Residuals_Sum = Residuals_Sum;
+            this.Unknowns_Sum = 0;
         }
         public Solution(Solution _Solution)
         {

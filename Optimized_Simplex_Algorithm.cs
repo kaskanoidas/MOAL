@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 // Mixed Optimisation Algorithm TM Gludis 2014, Created by: Rolandas Rimkus
 namespace Mixed_Optimisation_Algorithm_Library
@@ -14,43 +15,40 @@ namespace Mixed_Optimisation_Algorithm_Library
         // Global variables
         Simplex_Table Table;
         Simplex_Table Table_Back;
-        List<Tuple<int, int>> Best_Answer_Data;
         List<int> Residual_Back;
         string Answer;
         Boolean Continue_Calculation;
         Boolean Start_Sum_Process;
         Data_Possibilitys Data;
         Task Global_Task;
-        List<Solution> Solution_List;
+        ConcurrentStack<Solution> Solution_List;
+        Solution Best_Solution;
+        int Thread_Count;
+        ConcurrentStack<int> List_Of_Item_Indexs_To_Remove;
+        ConcurrentDictionary<int, Table_Possibility> Concurent_Table;
+        ConcurrentDictionary<int, Value_Possibility> Concurent_Value;
+        Task Task = new Task();
+        CountdownEvent e;
 
-        public Tuple<string,List<Solution>> Optimized_Simplex_Algorithm_Start(Task task)
+        public Tuple<string,List<Solution>> Optimized_Simplex_Algorithm_Start(Task task, int Number_Of_Threads)
         {
+            Task = task;
+            Thread_Count = Number_Of_Threads;
             Stopwatch time = Stopwatch.StartNew();
             Global_Task = task;
             Simplex_Deep_Cycle();
             time.Stop();
-            return new Tuple<string, List<Solution>>(Return_Optimized_Simplex_Algorithm() + "\n Time taken to calculate: " + time.ElapsedMilliseconds.ToString() + " Milliseconds", Solution_List);
+            return new Tuple<string, List<Solution>>(Return_Optimized_Simplex_Algorithm() + "\n Time taken to calculate: " + time.ElapsedMilliseconds.ToString() + " Milliseconds", Solution_List.ToList());
         }
         private string Return_Optimized_Simplex_Algorithm()
         {
             return Answer;
         }
-        private List<Tuple<int, int>> Reset_Best_Answer_Data()
-        {
-            // 0 index == Sum value and residual, other's unknown and value
-            List<Tuple<int, int>> newAnswer = new List<Tuple<int, int>>() { };
-            newAnswer.Add(new Tuple<int, int>(0, Global_Task.Rezults.Sum()));
-            for (int i = 0; i < Global_Task.Unknown_Multipliers[0].Count; i++)
-            {
-                newAnswer.Add(new Tuple<int, int>(i+1, 0));
-            }
-            return newAnswer;
-        }
         private void Simplex_Deep_Cycle()
         {
-            Best_Answer_Data = Reset_Best_Answer_Data();
-            Residual_Back = new List<int>(Global_Task.Rezults); // hardcoded results
-            Solution_List = new List<Solution>() { };
+            Residual_Back = new List<int>(Global_Task.Rezults);
+            Solution_List = new ConcurrentStack<Solution>() { };
+            Best_Solution = new Solution(Enumerable.Repeat(0, Task.Unknown_Multipliers[0].Count).ToList());
             Start_Sum_Process = false;
             Continue_Calculation = true;
             while (Continue_Calculation == true)
@@ -60,6 +58,8 @@ namespace Mixed_Optimisation_Algorithm_Library
                 Continue_Calculation = false;
                 Simplex_Cycle(Table);
                 Start_Sum_Process = true;
+                Find_Best_Solution();
+                Prepare_For_Data_Reading();
             }
         }
         private void Simplex_Cycle(Simplex_Table _Table)
@@ -88,16 +88,35 @@ namespace Mixed_Optimisation_Algorithm_Library
                     i--; count--;
                 }
                 count = Data.Tables.Count;
+                List_Of_Item_Indexs_To_Remove = new ConcurrentStack<int> { };
+                Concurent_Table = new ConcurrentDictionary<int, Table_Possibility>(Thread_Count, count);
+                Concurent_Value = new ConcurrentDictionary<int, Value_Possibility>(Thread_Count, count);
                 for (int i = 0; i < count; i++)
                 {
-                    if (Simplex_Cycle_Step(ref Data.Tables[i].Table, ref Data.Tables[i].Residual, i) == false)
-                    {
-                        // Save to Solution_List
-                        Data.Tables.RemoveAt(i);
-                        Data.Values.RemoveAt(i);
-                        i--; count--;
-                    }
+                    Concurent_Table[i] = Data.Tables[i];
+                    Concurent_Value[i] = Data.Values[i];
                 }
+                using (e = new CountdownEvent(count))
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        ThreadPool.QueueUserWorkItem(new WaitCallback(Simplex_Cycle_Step), i);
+                    }
+                    e.Wait();
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    Data.Tables[i] = Concurent_Table[i];
+                    // Data.Values[i] = Concurent_Value[i]; // Values dont change in calculation if they do, uncoment
+                }
+                int index;
+                while (List_Of_Item_Indexs_To_Remove.TryPop(out index))
+                {
+                    Data.Tables[index] = null;
+                    Data.Values[index] = null;
+                }
+                Data.Tables.RemoveAll(item => item == null);
+                Data.Values.RemoveAll(item => item == null);
             }
         }
         private void Find_Max_Index(Simplex_Table _Table, List<int> _Residual)
@@ -189,15 +208,24 @@ namespace Mixed_Optimisation_Algorithm_Library
 
             }
         }
-        private Boolean Simplex_Cycle_Step(ref Simplex_Table _Table, ref List<int> Residual, int Index)
+        private void Simplex_Cycle_Step(object Thread_Info)
+        {
+            int Index = (int)Thread_Info;
+            if (Simplex_Cycle_Step(ref Concurent_Table[Index].Table, ref Concurent_Table[Index].Residual, Concurent_Value[Index]) == false)
+            {
+                List_Of_Item_Indexs_To_Remove.Push(Index);
+            }
+            e.Signal();
+        }
+        private Boolean Simplex_Cycle_Step(ref Simplex_Table _Table, ref List<int> Residual, Value_Possibility _Value)
         {
             Boolean stop = false;
             if (Check_Symplex_Rules(_Table) == true)
             {
                 Residual = new List<int> { };
-                int Max_Index = Data.Values[Index].Max_Index;
-                int Min_Selected_Indicator = Data.Values[Index].Min_Selected_Indicator;
-                int Min_Selected_Indicators_Result = Convert.ToInt32(Math.Floor(Data.Values[Index].Min_Selected_Indicators_Result));
+                int Max_Index = _Value.Max_Index;
+                int Min_Selected_Indicator = _Value.Min_Selected_Indicator;
+                int Min_Selected_Indicators_Result = Convert.ToInt32(Math.Floor(_Value.Min_Selected_Indicators_Result));
                 if (Min_Selected_Indicator == -1 && Min_Selected_Indicators_Result == -1)
                 {
                     return false;
@@ -385,7 +413,7 @@ namespace Mixed_Optimisation_Algorithm_Library
         }
         private Boolean Test_Simplex_Answer(Simplex_Table Table, List<int> Residual)
         {
-            Solution Solution = new Solution(Residual, Residual.Sum());
+            Solution Solution = new Solution(Residual, Residual.Sum(), Enumerable.Repeat(0, Task.Unknown_Multipliers[0].Count).ToList());
             for (int j = 0; j < Table.Selected_Indicator.Count; j++)
             {
                 int index = Table.Selected_Indicator[j];
@@ -397,7 +425,15 @@ namespace Mixed_Optimisation_Algorithm_Library
             Solution.Unknowns_Sum = Solution.Unknowns.Sum();
             if (Solution.Unknowns_Sum > 0)
             {
-                Solution_List.Add(Solution);
+                if (Start_Sum_Process == true)
+                {
+                    Solution.Unknowns_Sum += Best_Solution.Unknowns_Sum;
+                    for (int i = 0; i < Best_Solution.Unknowns.Count; i++)
+                    {
+                        Solution.Unknowns[i] += Best_Solution.Unknowns[i];
+                    }
+                }
+                Solution_List.Push(Solution);
             }
 
             int Sum_Answers = 0;
@@ -414,93 +450,61 @@ namespace Mixed_Optimisation_Algorithm_Library
                     Sum_Answers += Row[i];
                 }
             }
-            if (Sum_Answers > Best_Answer_Data[0].Item1)
-            {
-                Best_Answer_Data = Reset_Best_Answer_Data();
-                int resid = 0;
-                for(int i = 0; i < Residual.Count; i++)
-                {
-                    resid += Residual[i];
-                    Residual_Back[i] = Residual[i];
-                }
-                Best_Answer_Data[0] = new Tuple<int,int>(Sum_Answers, resid);
-                for (int i = 0; i < count; i++)
-                {
-                    if (Table.Selected_Indicator[i] >= 0)
-                    {
-                        if (Row[i] > 0)
-                        {
-                            Best_Answer_Data[Table.Selected_Indicator[i] + 1] = new Tuple<int, int>(Table.Selected_Indicator[i] + 1, Row[i]);
-                        }
-                    }
-                }
-                Prepare_For_Data_Reading(Table, Residual, Sum_Answers);
-                Continue_Calculation = true;
-            }
-            else if (Start_Sum_Process == true && Sum_Answers > 0)
-            {
-                int resid = 0;
-                for (int i = 0; i < Residual.Count; i++)
-                {
-                    resid += Residual[i];
-                    Residual_Back[i] = Residual[i];
-                }
-                Best_Answer_Data[0] = new Tuple<int, int>(Sum_Answers + Best_Answer_Data[0].Item1, resid);
-                for (int i = 0; i < count; i++)
-                {
-                    if (Table.Selected_Indicator[i] >= 0)
-                    {
-                        if (Row[i] > 0)
-                        {
-                            Best_Answer_Data[Table.Selected_Indicator[i] + 1] = new Tuple<int, int>(Table.Selected_Indicator[i] + 1, Row[i] + Best_Answer_Data[Table.Selected_Indicator[i] + 1].Item2);
-                        }
-                    }
-                }
-                Prepare_For_Data_Reading(Table, Residual, Sum_Answers);
-                Continue_Calculation = true;
-            }
             return true;
         }
-        private void Prepare_For_Data_Reading(Simplex_Table Table, List<int> Residual, int Sum_Answers)
+        private void Find_Best_Solution()
+        {
+            List<Solution> Sol = new List<Solution>(Solution_List.ToList());
+            int max = -1;
+            int mx = -1;
+            for (int i = 0; i < Sol.Count; i++)
+            {
+                if (max < Sol[i].Unknowns_Sum)
+                {
+                    max = Sol[i].Unknowns_Sum;
+                    mx = i;
+                }
+            }
+            if (mx != -1)
+            {
+                Best_Solution = new Solution(Sol[mx]);
+            }
+        }
+        private void Prepare_For_Data_Reading()
         {
             Answer = "The best solution that the Simplex algorithm calculated: \n \n";
-            List<int> Row = Table.Selected_Indicators_Result;
-            int count = Row.Count;
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < Best_Solution.Unknowns.Count; i++)
             {
-                if (Table.Selected_Indicator[i] >= 0)
+                if (Best_Solution.Unknowns[i] > 0)
                 {
-                    if (Row[i] > 0)
-                    {
-                        Answer += "x" + (Table.Selected_Indicator[i] + 1) + " = " + Row[i] + "; ";
-                    }  
+                    Answer += "x" + (i + 1) + " = " + Best_Solution.Unknowns[i] + "; ";
                 }
             }
             Answer += "\n";
-            for (int i = 0; i < Global_Task.Rezults.Count; i++)
+            for (int i = 0; i < Task.Rezults.Count; i++)
             {
-                for (int j = 0; j < Global_Task.Unknown_Multipliers[i].Count; j++) 
+                for (int j = 0; j < Task.Unknown_Multipliers[i].Count; j++)
                 {
-                    if (j != Global_Task.Unknown_Multipliers[i].Count - 1)
+                    if (j != Task.Unknown_Multipliers[i].Count - 1)
                     {
-                        Answer += Global_Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " + ";
+                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j + 1) + " + ";
                     }
                     else
                     {
-                        Answer += Global_Task.Unknown_Multipliers[i][j] + "x" + (j+1) + " = ";
+                        Answer += Task.Unknown_Multipliers[i][j] + "x" + (j + 1) + " = ";
                     }
                 }
-                Answer += Global_Task.Rezults[i] + "  The residual is " + Residual[i] + "\n";
+                Answer += Task.Rezults[i] + "  The residual is " + Best_Solution.Residuals[i] + "\n";
             }
-            Answer += "Sum of the residuals: " + (Residual.Sum()) + "\n";
-            Answer += "Sum of the unknows values: " + Sum_Answers + "\n";
+            Answer += "Sum of the residuals: " + (Best_Solution.Residuals_Sum) + "\n";
+            Answer += "Sum of the unknows values: " + Best_Solution.Unknowns_Sum + "\n";
             Answer += "\n";
         }
     }
     public class Data_Possibilitys
     {
-        public List<Table_Possibility> Tables = new List<Table_Possibility>();
-        public List<Value_Possibility> Values = new List<Value_Possibility>();
+        public List<Table_Possibility> Tables = new List<Table_Possibility>() { };
+        public List<Value_Possibility> Values = new List<Value_Possibility>() { };
     }
     public class Table_Possibility
     {

@@ -122,9 +122,10 @@ namespace Mixed_Optimisation_Algorithm_Library
         private void Generate_Starting_Solutions(object Thread_Info)
         {
             Random Random_Number = new Random();
+            int Number_Of_Zeros = Task.Unknown_Multipliers[0].Count;
             for (int Made_Items = 0; Made_Items < count; Made_Items++)
             {
-                Solution New_Solution = new Solution(Task.Rezults, Task.Rezults.Sum());
+                Solution New_Solution = new Solution(Task.Rezults, Task.Rezults.Sum(), Enumerable.Repeat(0, Number_Of_Zeros).ToList());
                 List<int> UnusedUnkowns = new List<int>(Enumerable.Range(0,Number_Of_Unique_Unkowns));
                 while (UnusedUnkowns.Count != 0)
                 {
